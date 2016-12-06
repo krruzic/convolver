@@ -1,24 +1,36 @@
-TARGET = convolve
-LIBS = -lm
-CC = gcc
-CFLAGS = -g -Wall
+# project name (generate executable with this name)
+TARGET   = convolve.out
 
-.PHONY: default all clean
+CC       = gcc
+# compiling flags here
+CFLAGS   = -Wall -I.
 
-default: $(TARGET)
-all: default
+LINKER   = gcc -o
+# linking flags here
+LFLAGS   = -Wall -I. -lm
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
-HEADERS = $(wildcard *.h)
+# change these to proper directories where each file should be
+SRCDIR   = src
+BINDIR   = bin
 
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+SOURCES  := $(wildcard $(SRCDIR)/*.c)
+INCLUDES := $(wildcard $(SRCDIR)/*.h)
+OBJECTS  := $(SOURCES:$(SRCDIR)/%.c=$(BINDIR)/%.o)
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
+# link to binary
+$(BINDIR)/$(TARGET): $(OBJECTS)
+	@$(LINKER) $@ $(LFLAGS) $(OBJECTS)
+	@echo "Make successful!"
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
+# compile src files to objects
+$(OBJECTS): $(BINDIR)/%.o : $(SRCDIR)/%.c | dir
+	@$(CC) $(CFLAGS) -c $< -o $@
+	
+dir: 
+	mkdir -p "bin"
 
+.PHONY: clean
 clean:
-	-rm -f *.o
-	-rm -f $(TARGET)
+	rm -f $(OBJECTS)
+	rm -f $(BINDIR)/$(TARGET)
+	@echo "Project cleaned!"

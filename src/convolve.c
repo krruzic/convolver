@@ -13,16 +13,16 @@ unsigned char buffer2[2];
 
 
 FILE *ptr;
-char *in_filename;
-char *ir_filename;
-struct WAV_HEADER in_header;
-struct WAV_HEADER ir_header;
-
 
 int main(int argc, char **argv) {
-  filename = (char*) malloc(sizeof(char) * 1024);
+  in_filename = (char*) malloc(sizeof(char) * 1024);
+  if (in_filename == NULL) {
+    printf("Error in malloc\n");
+    exit(1);
+  }
 
-  if (filename == NULL) {
+  ir_filename = (char*) malloc(sizeof(char) * 1024);
+  if (ir_filename == NULL) {
     printf("Error in malloc\n");
     exit(1);
   }
@@ -44,11 +44,12 @@ int main(int argc, char **argv) {
     strcat(in_filename, argv[1]);
     strcat(ir_filename, "/");
     strcat(ir_filename, argv[2]);
-    printf("input file is: %s\n", filename);
-    printf("impulse file is: %s\n", filename);
+    printf("input file is: %s\n", in_filename);
+    printf("impulse file is: %s\n", ir_filename);
   }
   
   read_content(in_filename, &in_header);
+  return 0;
 }
 
 int read_content(char* filename, struct WAV_HEADER *header) {
@@ -63,7 +64,8 @@ int read_content(char* filename, struct WAV_HEADER *header) {
   int read = 0;
 
   read = fread(header->riff, sizeof(header->riff), 1, ptr);
-
+  if (header->riff != "RIFF")
+      return -1;
   read = fread(buffer4, sizeof(buffer4), 1, ptr);
   // convert little endian to big endian 4 byte int
   header->overall_size  = buffer4[0] |
@@ -131,7 +133,6 @@ int read_content(char* filename, struct WAV_HEADER *header) {
   long num_samples = (8 * header->data_size) / (header->channels * header->bits_per_sample);
   long size_of_each_sample = (header->channels * header->bits_per_sample) / 8;
   // calculate duration of file
-  float duration_in_seconds = (float) header->overall_size / header->byterate;
   printf("samples: %ld, sample size: %ld\n", num_samples, size_of_each_sample);
 
 
