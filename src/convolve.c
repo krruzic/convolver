@@ -39,6 +39,7 @@ int main(int argc, char **argv) {
     }
     if (argc < 3) {
         printf("No impluse file specified\n");
+        return -1;
     }
     strcat(in_filename, "/");
     strcat(in_filename, argv[1]);
@@ -64,8 +65,6 @@ int read_content(char* filename, struct WAV_HEADER *header) {
   int read = 0;
 
   read = fread(header->riff, sizeof(header->riff), 1, ptr);
-  if (header->riff != "RIFF")
-      return -1;
   read = fread(buffer4, sizeof(buffer4), 1, ptr);
   // convert little endian to big endian 4 byte int
   header->overall_size  = buffer4[0] |
@@ -128,108 +127,6 @@ int read_content(char* filename, struct WAV_HEADER *header) {
         (buffer4[1] << 8) |
         (buffer4[2] << 16) |
         (buffer4[3] << 24 );
-
-  // calculate no. of samples
-  long num_samples = (8 * header->data_size) / (header->channels * header->bits_per_sample);
-  long size_of_each_sample = (header->channels * header->bits_per_sample) / 8;
-  // calculate duration of file
-  printf("samples: %ld, sample size: %ld\n", num_samples, size_of_each_sample);
-
-
-   // read each sample from data chunk if PCM
-   if (header->format_type == 1) {
-    printf("Dump sample data? Y/N?");
-    char c = 'n';
-    scanf("%c", &c);
-    if (c == 'Y' || c == 'y') {
-      long i =0;
-      char data_buffer[size_of_each_sample];
-      int  size_is_correct = TRUE;
-
-      // make sure that the bytes-per-sample is completely divisible by num.of channels
-      long bytes_in_each_channel = (size_of_each_sample / header->channels);
-      if ((bytes_in_each_channel  * header->channels) != size_of_each_sample) {
-        printf("Error: %ld x %ud <> %ld\n", bytes_in_each_channel, header->channels, size_of_each_sample);
-        size_is_correct = FALSE;
-      }
-
-      if (size_is_correct) {
-        // the valid amplitude range for values based on the bits per sample
-        long low_limit = 0l;
-        long high_limit = 0l;
-
-        switch (header->bits_per_sample) {
-          case 8:
-            low_limit = -128;
-            high_limit = 127;
-            break;
-          case 16:
-            low_limit = -32768;
-            high_limit = 32767;
-            break;
-          case 32:
-            low_limit = -2147483648;
-            high_limit = 2147483647;
-            break;
-        }
-
-        printf("\n\n.Valid range for data values : %ld to %ld \n", low_limit, high_limit);
-        for (i =1; i <= num_samples; i++) {
-          printf("==========Sample %ld / %ld=============\n", i, num_samples);
-          read = fread(data_buffer, sizeof(data_buffer), 1, ptr);
-          if (read == 1) {
-
-            // dump the data read
-            unsigned int  xchannels = 0;
-            int data_in_channel = 0;
-
-            for (xchannels = 0; xchannels < header->channels; xchannels ++ ) {
-              printf("Channel#%d : ", (xchannels+1));
-              // convert data from little endian to big endian based on bytes in each channel sample
-              if (bytes_in_each_channel == 4) {
-                data_in_channel =    data_buffer[0] |
-                          (data_buffer[1]<<8) |
-                          (data_buffer[2]<<16) |
-                          (data_buffer[3]<<24);
-              }
-              else if (bytes_in_each_channel == 2) {
-                data_in_channel = data_buffer[0] |
-                          (data_buffer[1] << 8);
-              }
-              else if (bytes_in_each_channel == 1) {
-                data_in_channel = data_buffer[0];
-              }
-
-              printf("%d ", data_in_channel);
-
-              // check if value was in range
-              if (data_in_channel < low_limit || data_in_channel > high_limit)
-                printf("**value out of range\n");
-
-              printf(" | ");
-            }
-
-            printf("\n");
-          }
-          else {
-            printf("Error reading file. %d bytes\n", read);
-            break;
-          }
-
-        } //     for (i =1; i <= num_samples; i++) {
-
-      } //     if (size_is_correct) {
-
-     } // if (c == 'Y' || c == 'y') {
-   } //  if (header->format_type == 1) {
-
-printf("Closing file..\n");
-fclose(ptr);
-
-// cleanup before quitting
-free(filename);
-return 0;
-
 }
 
 void convolve(float x[], int N, float h[], int M, float y[], int P) {
@@ -254,4 +151,64 @@ void convolve(float x[], int N, float h[], int M, float y[], int P) {
   for (m = 0; m < M; m++)
     y[n+m] += x[n] * h[m];
   }
+}
+
+
+
+//  The four1 four1 from Numerical Recipes in C,
+//  p. 507 - 508.
+//  Note:  changed float data types to double.
+//  nn must be a power of 2, and use +1 for
+//  isign for an four1, and -1 for the Inverse four1.
+//  The data is complex, so the array size must be
+//  nn*2. This code assumes the array starts
+//  at index 1, not 0, so subtract 1 when
+//  calling the routine (see main() below).
+
+void four1(float data[], int nn, int isign)
+{
+    unsigned long n, mmax, m, j, istep, i;
+    float wtemp, wr, wpr, wpi, wi, theta;
+    float tempr, tempi;
+    
+    n = nn << 1;
+    j = 1;
+    
+    for (i = 1; i < n; i += 2) {
+        if (j > i) {
+            SWAP(data[j], data[i]);
+            SWAP(data[j+1], data[i+1]);
+        }
+        m = nn;
+        while (m >= 2 && j > m) {
+            j -= m;
+            m >>= 1;
+        }
+        j += m;
+    }
+    
+    mmax = 2;
+    while (n > mmax) {
+        istep = mmax << 1;
+        theta = isign * (6.28318530717959 / mmax);
+        wtemp = sin(0.5 * theta);
+        wpr = -2.0 * wtemp * wtemp;
+        wpi = sin(theta);
+        wr = 1.0;
+        wi = 0.0;
+        for (m = 1; m < mmax; m += 2) {
+            for (i = m; i <= n; i += istep) {
+                j = i + mmax;
+                tempr = wr * data[j] - wi * data[j+1];
+                tempi = wr * data[j+1] + wi * data[j];
+                data[j] = data[i] - tempr;
+                data[j+1] = data[i+1] - tempi;
+                data[i] += tempr;
+                data[i+1] += tempi;
+            }
+            wr = (wtemp = wr) * wpr - wi * wpi + wr;
+            wi = wi * wpr + wtemp * wpi + wi;
+        }
+        mmax = istep;
+    }
 }

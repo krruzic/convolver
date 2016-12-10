@@ -1,10 +1,8 @@
 # project name (generate executable with this name)
 TARGET   = convolve.out
-
 CC       = gcc
 # compiling flags here
 CFLAGS   = -Wall -I.
-
 LINKER   = gcc -o
 # linking flags here
 LFLAGS   = -Wall -I. -lm
@@ -27,7 +25,7 @@ $(OBJECTS): $(BINDIR)/%.o : $(SRCDIR)/%.c | dir
 	@$(CC) $(CFLAGS) -c $< -o $@
 	
 dir: 
-	mkdir -p "bin"
+	@mkdir -p "bin" 
 
 .PHONY: clean
 clean:
