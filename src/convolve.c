@@ -2,17 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "wav.h"
 #include "convolve.h"
-
-// WAVE header structure
-
-// use these to convert ints or shorts to little endian from big
-unsigned char buffer4[4];
-unsigned char buffer2[2];
-
-
-FILE *ptr;
 
 int main(int argc, char **argv) {
   in_filename = (char*) malloc(sizeof(char) * 1024);
@@ -23,6 +15,12 @@ int main(int argc, char **argv) {
 
   ir_filename = (char*) malloc(sizeof(char) * 1024);
   if (ir_filename == NULL) {
+    printf("Error in malloc\n");
+    exit(1);
+  }
+  
+  out_filename = (char*) malloc(sizeof(char) * 1024);
+  if (out_filename == NULL) {
     printf("Error in malloc\n");
     exit(1);
   }
@@ -41,115 +39,56 @@ int main(int argc, char **argv) {
         printf("No impluse file specified\n");
         return -1;
     }
+    if (argc < 4) {
+      printf("No output file specified\n");
+      return -1;
+    }
+    
     strcat(in_filename, "/");
     strcat(in_filename, argv[1]);
     strcat(ir_filename, "/");
     strcat(ir_filename, argv[2]);
+    strcat(out_filename, "/");
+    strcat(out_filename, argv[3]);
     printf("input file is: %s\n", in_filename);
     printf("impulse file is: %s\n", ir_filename);
+    printf("out file is: %s\n", out_filename);
   }
-  
-  read_content(in_filename, &in_header);
+
+  printf("input sound: \n");
+  float *x = readWav(in_filename, &in_header); 
+  printf("impulse sound: \n");
+  float *h = readWav(ir_filename, &ir_header);
+  long N = getWavSamples(&in_header);
+  long M = getWavSamples(&ir_header);
+  long P = N + M - 1;
+  float *y = malloc(sizeof(float) * P);
+
+  // change to convolve for input-side
+  overlapAdd(x, N, h, M, y, P);
+  writeWav("out.wav", &in_header, y, P);
   return 0;
 }
 
-int read_content(char* filename, struct WAV_HEADER *header) {
-  printf("Opening  file... %s\n", filename);
-  ptr = fopen(filename, "rb");
-
-  if (ptr == NULL) {
-    printf("Error opening file\n");
-    exit(1);
-  }
-
-  int read = 0;
-
-  read = fread(header->riff, sizeof(header->riff), 1, ptr);
-  read = fread(buffer4, sizeof(buffer4), 1, ptr);
-  // convert little endian to big endian 4 byte int
-  header->overall_size  = buffer4[0] |
-            (buffer4[1]<<8) |
-            (buffer4[2]<<16) |
-            (buffer4[3]<<24);
-
-
-  read = fread(header->wave, sizeof(header->wave), 1, ptr);
-  read = fread(header->fmt_chunk_marker, sizeof(header->fmt_chunk_marker), 1, ptr);
-
-  read = fread(buffer4, sizeof(buffer4), 1, ptr);
-
-  // convert little endian to big endian 4 byte integer
-  header->length_of_fmt = buffer4[0] |
-              (buffer4[1] << 8) |
-              (buffer4[2] << 16) |
-              (buffer4[3] << 24);
-
-  read = fread(buffer2, sizeof(buffer2), 1, ptr);
-  header->format_type = buffer2[0] | (buffer2[1] << 8);
-
-  // if not PCM, there's an extra 2 fields in the file before data
-  char format_name[10] = "";
-  if (header->format_type == 1)
-    strcpy(format_name,"PCM");
-  else if (header->format_type == 6)
-    strcpy(format_name, "A-law");
-  else if (header->format_type == 7)
-    strcpy(format_name, "Mu-law");
-
-  read = fread(buffer2, sizeof(buffer2), 1, ptr);
-  header->channels = buffer2[0] | (buffer2[1] << 8);
-
-  read = fread(buffer4, sizeof(buffer4), 1, ptr);
-  header->sample_rate = buffer4[0] |
-            (buffer4[1] << 8) |
-            (buffer4[2] << 16) |
-            (buffer4[3] << 24);
-
-
-  read = fread(buffer4, sizeof(buffer4), 1, ptr);
-  header->byterate  = buffer4[0] |
-            (buffer4[1] << 8) |
-            (buffer4[2] << 16) |
-            (buffer4[3] << 24);
-
-  read = fread(buffer2, sizeof(buffer2), 1, ptr);
-  header->block_align = buffer2[0] |
-          (buffer2[1] << 8);
-
-  read = fread(buffer2, sizeof(buffer2), 1, ptr);
-  header->bits_per_sample = buffer2[0] |
-          (buffer2[1] << 8);
-
-  read = fread(header->data_chunk_header, sizeof(header->data_chunk_header), 1, ptr);
-
-  read = fread(buffer4, sizeof(buffer4), 1, ptr);
-  header->data_size = buffer4[0] |
-        (buffer4[1] << 8) |
-        (buffer4[2] << 16) |
-        (buffer4[3] << 24 );
-}
-
-void convolve(float x[], int N, float h[], int M, float y[], int P) {
+void convolve(float *x, long N, float *h, long M, float *y, int P) {
   int n, m;
 
   /*  Make sure the output buffer is the right size: P = N + M - 1  */
   if (P != (N + M - 1)) {
-  printf("Output signal vector is the wrong size\n");
-  printf("It is %-d, but should be %-d\n", P, (N + M - 1));
-  printf("Aborting convolution\n");
-  return;
+    printf("Output signal vector is the wrong size\n");
+    printf("It is %-d, but should be %-d\n", P, (N + M - 1));
+    printf("Aborting convolution\n");
+    return;
   }
-
   /*  Clear the output buffer y[] to all zero values  */
-  for (n = 0; n < P; n++)
-  y[n] = 0.0;
-
   /*  Do the convolution  */
   /*  Outer loop:  process each input value x[n] in turn  */
   for (n = 0; n < N; n++) {
-  /*  Inner loop:  process x[n] with each sample of h[]  */
-  for (m = 0; m < M; m++)
-    y[n+m] += x[n] * h[m];
+    printf("on x[%i]\n", n);
+    y[n] = 0;
+    /*  Inner loop:  process x[n] with each sample of h[]  */
+    for (m = 0; m < M; m++)
+      y[n+m] += x[n] * h[m];
   }
 }
 
@@ -164,51 +103,162 @@ void convolve(float x[], int N, float h[], int M, float y[], int P) {
 //  nn*2. This code assumes the array starts
 //  at index 1, not 0, so subtract 1 when
 //  calling the routine (see main() below).
+void four1(float data[], int nn, int isign) {
+  unsigned long n, mmax, m, j, istep, i;
+  float wtemp, wr, wpr, wpi, wi, theta;
+  float tempr, tempi;
+  
+  n = nn << 1;
+  j = 1;
+  
+  for (i = 1; i < n; i += 2) {
+    if (j > i) {
+      SWAP(data[j], data[i]);
+      SWAP(data[j+1], data[i+1]);
+    }
+    m = nn;
+    while (m >= 2 && j > m) {
+      j -= m;
+      m >>= 1;
+    }
+    j += m;
+  }
+  
+  mmax = 2;
+  while (n > mmax) {
+    istep = mmax << 1;
+    theta = isign * (6.28318530717959 / mmax);
+    wtemp = sin(0.5 * theta);
+    wpr = -2.0 * wtemp * wtemp;
+    wpi = sin(theta);
+    wr = 1.0;
+    wi = 0.0;
+    for (m = 1; m < mmax; m += 2) {
+      for (i = m; i <= n; i += istep) {
+        j = i + mmax;
+        tempr = wr * data[j] - wi * data[j+1];
+        tempi = wr * data[j+1] + wi * data[j];
+        data[j] = data[i] - tempr;
+        data[j+1] = data[i+1] - tempi;
+        data[i] += tempr;
+        data[i+1] += tempi;
+      }
+      wr = (wtemp = wr) * wpr - wi * wpi + wr;
+      wi = wi * wpr + wtemp * wpi + wi;
+    }
+    mmax = istep;
+  }
+}
 
-void four1(float data[], int nn, int isign)
+
+// scales the numbers in a given array signal[] and stores numbers back in array
+void four1Scaling (float signal[], int N)
 {
-    unsigned long n, mmax, m, j, istep, i;
-    float wtemp, wr, wpr, wpi, wi, theta;
-    float tempr, tempi;
+	int k;
+	int i;
+	for (k = 0, i = 0; k < N; k++, i+=2) {
+		signal[i] /= (float)N;
+		signal[i+1] /= (float)N;
+	}
+}
+
+void complexCalculation(float complexInput[],float complexIR[],float complexResult[], int size)
+{
+	int i = 0;
+	int tempI = 0;
+	for(i = 0; i < size; i++) {
+		tempI = i * 2;
+	    complexResult[tempI] = complexInput[tempI] * complexIR[tempI] - 				complexInput[tempI+1] * complexIR[tempI+1];
+	    complexResult[tempI+1] = complexInput[tempI+1] * complexIR[tempI] + 				complexInput[tempI] * complexIR[tempI+1];
+	}
+}
+
+void padZeroes(float toPad[], int size)
+{
+	memset(toPad, 0, size);
+}
+
+void unpadArray(float result[], float complete[], int size)
+{
+	int i, j;
     
-    n = nn << 1;
-    j = 1;
-    
-    for (i = 1; i < n; i += 2) {
-        if (j > i) {
-            SWAP(data[j], data[i]);
-            SWAP(data[j+1], data[i+1]);
-        }
-        m = nn;
-        while (m >= 2 && j > m) {
-            j -= m;
-            m >>= 1;
-        }
-        j += m;
+    for(i = 0, j = 0; i < size; i++, j+=2)
+    {
+	    complete[i] = result[j];
     }
+}
+
+void padArray(float output[],float data[], int dataLen, int size)
+{
+	int i, k;
+	for(i = 0, k = 0; i < dataLen; i++, k+=2)
+	{
+	    output[k] = data[i];
+	    output[k + 1] = 0;
+	}
+	i = k;
     
-    mmax = 2;
-    while (n > mmax) {
-        istep = mmax << 1;
-        theta = isign * (6.28318530717959 / mmax);
-        wtemp = sin(0.5 * theta);
-        wpr = -2.0 * wtemp * wtemp;
-        wpi = sin(theta);
-        wr = 1.0;
-        wi = 0.0;
-        for (m = 1; m < mmax; m += 2) {
-            for (i = m; i <= n; i += istep) {
-                j = i + mmax;
-                tempr = wr * data[j] - wi * data[j+1];
-                tempi = wr * data[j+1] + wi * data[j];
-                data[j] = data[i] - tempr;
-                data[j+1] = data[i+1] - tempi;
-                data[i] += tempr;
-                data[i+1] += tempi;
-            }
-            wr = (wtemp = wr) * wpr - wi * wpi + wr;
-            wi = wi * wpr + wtemp * wpi + wi;
-        }
-        mmax = istep;
-    }
+	memset(output + k, 0, size -1);
+}
+
+void scaleSignal(float signal[], int samples)
+{
+	float min = 0, max = 0;
+	int i = 0;
+    
+	for(i = 0; i < samples; i++)
+	{
+		if(signal[i] > max)
+			max = signal[i];
+		if(signal[i] < min)
+			min = signal[i];
+	}
+    
+	min = min * -1;
+	if(min > max)
+		max = min;
+    
+	for(i = 0; i < samples; i++)
+	{
+		signal[i] = signal[i] / max;
+	}
+}
+
+// Uses overlap-add method of four1
+void overlapAdd(float *x,int N,float * h,int M, float *y, int P)
+{
+	int totalSize = 0;
+	int paddedTotalSize = 1;
+	totalSize = N + M - 1;
+    
+	int i = 0;
+	while (paddedTotalSize < totalSize)
+	{
+		paddedTotalSize <<= 1;
+		i++;
+	}
+	printf("Padded Size: %i exp: %i\n", paddedTotalSize, i);
+	printf("Input size: %i\n",N );
+	printf("IR size: %i\n", M);
+	printf("Sum IR&Input size: %i\n\n", totalSize);
+    
+	float *complexResult = malloc(sizeof(float) * (2*paddedTotalSize));
+	float *input = malloc(sizeof(float) * (2*paddedTotalSize));
+	float *ir = malloc(sizeof(float) * (2*paddedTotalSize));
+    
+	padArray(input,x, N,2*paddedTotalSize);
+	padArray(ir,h, M, 2*paddedTotalSize);
+	padZeroes(complexResult, 2*paddedTotalSize);
+	four1(input-1, paddedTotalSize, 1);
+	four1(ir-1, paddedTotalSize, 1);
+
+	printf("Complex calc\n");
+	complexCalculation(input, ir, complexResult, paddedTotalSize);
+
+	printf("Inverse four1\n");
+	four1(complexResult-1, paddedTotalSize, -1);
+	printf("Scaling\n");
+	four1Scaling(complexResult, paddedTotalSize);
+	unpadArray(complexResult, y, P);
+	scaleSignal(y, P);
 }

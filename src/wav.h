@@ -18,11 +18,16 @@ typedef struct WAV_HEADER {
   unsigned int blockAlign;             // NumChannels * BitsPerSample/8
   unsigned int bitsPerSample;          // 8- 8bits, 16- 16 bits etc
   
-  // date sub-chunk
+  // data sub-chunk
   unsigned char subChunk2ID[4];        // DATA string or FLLR string
-  unsigned int subChunk2Size;          // : samples * channels * BitsPerSample/8
+  unsigned int subChunk2Size;          // samples * channels * BitsPerSample/8
   short* fileData;                     // a pointer to the array of data 
 } WAV;
 
-float *readWav(char *filename, float *signal, WAV *header);
-void writeWav(char *fileName, WAV *header);
+long getWavSamples(WAV *header);
+
+float* readWav(char *filename, WAV *header);
+void writeWav(char *filename, WAV *header, float *data_fl, int signalSize);
+
+
+#endif

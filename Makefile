@@ -2,8 +2,8 @@
 TARGET   = convolve.out
 CC       = gcc
 # compiling flags here
-CFLAGS   = -Wall -I.
-LINKER   = gcc -o
+CFLAGS   = -g -Wall -I.
+LINKER   = gcc -g -o
 # linking flags here
 LFLAGS   = -Wall -I. -lm
 
@@ -17,7 +17,7 @@ OBJECTS  := $(SOURCES:$(SRCDIR)/%.c=$(BINDIR)/%.o)
 
 # link to binary
 $(BINDIR)/$(TARGET): $(OBJECTS)
-	@$(LINKER) $@ $(LFLAGS) $(OBJECTS)
+	$(LINKER) $@ $(OBJECTS) $(LFLAGS)
 	@echo "Make successful!"
 
 # compile src files to objects
