@@ -36,11 +36,8 @@ int main(int argc, char **argv) {
       return -1;
     }
     
-    strcat(in_filename, "/");
     strcat(in_filename, argv[1]);
-    strcat(ir_filename, "/");
     strcat(ir_filename, argv[2]);
-    strcat(out_filename, "/");
     strcat(out_filename, argv[3]);
     printf("input file is: %s\n", in_filename);
     printf("impulse file is: %s\n", ir_filename);
