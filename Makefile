@@ -1,5 +1,5 @@
 # project name (generate executable with this name)
-TARGET   = convolve.out
+TARGET   = convolve
 CC       = gcc
 # compiling flags here
 CFLAGS   = -g -Wall -I.

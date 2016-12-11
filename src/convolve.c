@@ -15,26 +15,19 @@ int main(int argc, char **argv) {
     exit(-1);
   }
 
-  // get file path
-/*    strcpy(in_filename, cwd);*/
-/*    strcpy(ir_filename, cwd);*/
-/*    strcpy(out_filename, cwd);*/
-    // get filename from command line
-    if (argc < 4) {
-      printf("Usage: convolve input.wav impulse.wav output.wav\n");
-      return -1;
-    }
-    
-    strcat(in_filename, argv[1]);
-    strcat(ir_filename, argv[2]);
-    strcat(out_filename, argv[3]);
-    printf("input file is: %s\n", in_filename);
-    printf("impulse file is: %s\n", ir_filename);
-    printf("out file is: %s\n", out_filename);
+  if (argc < 4) {
+    printf("Usage: convolve input.wav impulse.wav output.wav\n");
+    return -1;
+  }
+  
+  strcat(in_filename, argv[1]);
+  strcat(ir_filename, argv[2]);
+  strcat(out_filename, argv[3]);
+  printf("input file is: %s\n", in_filename);
+  printf("impulse file is: %s\n", ir_filename);
+  printf("out file is: %s\n", out_filename);
 
-  printf("input sound: \n");
   float *x = readWav(in_filename, &in_header); 
-  printf("impulse sound: \n");
   float *h = readWav(ir_filename, &ir_header);
   long N = getWavSamples(&in_header);
   long M = getWavSamples(&ir_header);
@@ -43,7 +36,10 @@ int main(int argc, char **argv) {
 
   // change to convolve for input-side
   overlapAdd(x, N, h, M, y, P);
-  writeWav("out.wav", &in_header, y, P);
+  writeWav(out_filename, &in_header, y, P);
+  free(x);
+  free(h);
+  free(y);
   return 0;
 }
 
@@ -62,7 +58,7 @@ void convolve(float *x, long N, float *h, long M, float *y, int P) {
   /*  Outer loop:  process each input value x[n] in turn  */
   for (n = 0; n < N; n++) {
     printf("on x[%i]\n", n);
-    y[n] = 0;
+/*    y[n] = 0;*/
     /*  Inner loop:  process x[n] with each sample of h[]  */
     for (m = 0; m < M; m++)
       y[n+m] += x[n] * h[m];
@@ -128,19 +124,7 @@ void four1(float data[], int nn, int isign) {
 }
 
 
-// scales the numbers in a given array signal[] and stores numbers back in array
-void four1Scaling (float signal[], int N)
-{
-	int k;
-	int i;
-	for (k = 0, i = 0; k < N; k++, i+=2) {
-		signal[i] /= (float)N;
-		signal[i+1] /= (float)N;
-	}
-}
-
-void complexCalculation(float complexInput[],float complexIR[],float complexResult[], int size)
-{
+void calcComp(float complexInput[], float complexIR[], float complexResult[], int size) {
 	int i = 0;
 	int tempI = 0;
 	for(i = 0; i < size; i++) {
@@ -150,41 +134,31 @@ void complexCalculation(float complexInput[],float complexIR[],float complexResu
 	}
 }
 
-void padZeroes(float toPad[], int size)
-{
-	memset(toPad, 0, size);
-}
-
-void unpadArray(float result[], float complete[], int size)
-{
+void unpadArray(float result[], float complete[], int size) {
 	int i, j;
     
-    for(i = 0, j = 0; i < size; i++, j+=2)
-    {
-	    complete[i] = result[j];
-    }
+  for(i = 0, j = 0; i < size; i++, j+=2) {
+    complete[i] = result[j];
+  }
+  free(result);
 }
 
-void padArray(float output[],float data[], int dataLen, int size)
-{
+void padArray(float output[], float data[], int dataLen, int size) {
 	int i, k;
-	for(i = 0, k = 0; i < dataLen; i++, k+=2)
-	{
-	    output[k] = data[i];
-	    output[k + 1] = 0;
+	for(i = 0, k = 0; i < dataLen; i++, k+=2) {
+    output[k] = data[i];
+    output[k + 1] = 0;
 	}
 	i = k;
-    
+
 	memset(output + k, 0, size -1);
 }
 
-void scaleSignal(float signal[], int samples)
-{
+void scaleSignal(float signal[], int samples) {
 	float min = 0, max = 0;
 	int i = 0;
     
-	for(i = 0; i < samples; i++)
-	{
+	for(i = 0; i < samples; i++) {
 		if(signal[i] > max)
 			max = signal[i];
 		if(signal[i] < min)
@@ -195,22 +169,19 @@ void scaleSignal(float signal[], int samples)
 	if(min > max)
 		max = min;
     
-	for(i = 0; i < samples; i++)
-	{
+	for(i = 0; i < samples; i++) {
 		signal[i] = signal[i] / max;
 	}
 }
 
 // Uses overlap-add method of four1
-void overlapAdd(float *x,int N,float * h,int M, float *y, int P)
-{
+void overlapAdd(float *x,int N,float * h,int M, float *y, int P) {
 	int totalSize = 0;
 	int paddedTotalSize = 1;
 	totalSize = N + M - 1;
     
 	int i = 0;
-	while (paddedTotalSize < totalSize)
-	{
+	while (paddedTotalSize < totalSize) {
 		paddedTotalSize <<= 1;
 		i++;
 	}
@@ -218,24 +189,23 @@ void overlapAdd(float *x,int N,float * h,int M, float *y, int P)
 	printf("Input size: %i\n",N );
 	printf("IR size: %i\n", M);
 	printf("Sum IR&Input size: %i\n\n", totalSize);
-    
+  
 	float *complexResult = malloc(sizeof(float) * (2*paddedTotalSize));
 	float *input = malloc(sizeof(float) * (2*paddedTotalSize));
 	float *ir = malloc(sizeof(float) * (2*paddedTotalSize));
     
 	padArray(input,x, N,2*paddedTotalSize);
 	padArray(ir,h, M, 2*paddedTotalSize);
-	padZeroes(complexResult, 2*paddedTotalSize);
 	four1(input-1, paddedTotalSize, 1);
 	four1(ir-1, paddedTotalSize, 1);
 
-	printf("Complex calc\n");
-	complexCalculation(input, ir, complexResult, paddedTotalSize);
+	calcComp(input, ir, complexResult, paddedTotalSize);
+  free(input);
+  free(ir);
+	four1(complexResult-1, paddedTotalSize, -1);	
 
-	printf("Inverse four1\n");
-	four1(complexResult-1, paddedTotalSize, -1);
-	printf("Scaling\n");
-	four1Scaling(complexResult, paddedTotalSize);
+  // inline four1scaling to reduce calls
+  for (int i = 0; i < paddedTotalSize; i++)
+    complexResult[i] /= (float)paddedTotalSize;
 	unpadArray(complexResult, y, P);
-	scaleSignal(y, P);
 }
