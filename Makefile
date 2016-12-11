@@ -3,7 +3,7 @@ TARGET   = convolve
 CC       = gcc
 # compiling flags here
 CFLAGS   = -g -Wall -I.
-LINKER   = gcc -g -O2
+LINKER   = gcc -g -O2 -o
 # linking flags here
 LFLAGS   = -Wall -I. -lm
 
