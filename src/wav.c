@@ -30,6 +30,7 @@ float* readWav(char *filename, WAV *header) {
   FILE* wav_file;
   wav_file = fopen(filename, "r");
   if (wav_file == NULL) {
+    printf("couldn't open file!");
     exit(1);
   }
  

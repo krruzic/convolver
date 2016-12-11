@@ -8,28 +8,17 @@
 
 int main(int argc, char **argv) {
   in_filename = (char*) malloc(sizeof(char) * 1024);
-  if (in_filename == NULL) {
-    printf("Error in malloc\n");
-    exit(1);
-  }
-
   ir_filename = (char*) malloc(sizeof(char) * 1024);
-  if (ir_filename == NULL) {
-    printf("Error in malloc\n");
-    exit(1);
-  }
-  
   out_filename = (char*) malloc(sizeof(char) * 1024);
-  if (out_filename == NULL) {
+  if (in_filename == NULL || ir_filename == NULL || out_filename == NULL) {
     printf("Error in malloc\n");
-    exit(1);
+    exit(-1);
   }
 
   // get file path
-  char cwd[1024];
-  if (getcwd(cwd, sizeof(cwd)) != NULL) {
-    strcpy(in_filename, cwd);
-    strcpy(ir_filename, cwd);
+/*    strcpy(in_filename, cwd);*/
+/*    strcpy(ir_filename, cwd);*/
+/*    strcpy(out_filename, cwd);*/
     // get filename from command line
     if (argc < 4) {
       printf("Usage: convolve input.wav impulse.wav output.wav\n");
@@ -42,7 +31,6 @@ int main(int argc, char **argv) {
     printf("input file is: %s\n", in_filename);
     printf("impulse file is: %s\n", ir_filename);
     printf("out file is: %s\n", out_filename);
-  }
 
   printf("input sound: \n");
   float *x = readWav(in_filename, &in_header); 
