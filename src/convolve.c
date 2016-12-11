@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   float *y = malloc(sizeof(float) * P);
 
   // change to convolve for input-side
-  overlapAdd(x, N, h, M, y, P);
+  convolve(x, N, h, M, y, P);
   writeWav(out_filename, &in_header, y, P);
   free(x);
   free(h);
@@ -58,7 +58,6 @@ void convolve(float *x, long N, float *h, long M, float *y, int P) {
   /*  Outer loop:  process each input value x[n] in turn  */
   for (n = 0; n < N; n++) {
     printf("on x[%i]\n", n);
-/*    y[n] = 0;*/
     /*  Inner loop:  process x[n] with each sample of h[]  */
     for (m = 0; m < M; m++)
       y[n+m] += x[n] * h[m];

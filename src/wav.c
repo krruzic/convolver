@@ -97,7 +97,7 @@ float* readWav(char *filename, WAV *header) {
   for (int i = 0; i < data_size; i++) {
     fread(buffer2, sizeof(buffer2), 1, wav_file);
     sample = buffer2[0] | (buffer2[1] << 8);
-    signal[i] = (sample * 1.0) / (32767);
+    signal[i] = (sample * 1.0) / 32767;
 /*    printf("%f\n", signal[i]);*/
     if (signal[i] < -1.0)
             signal[i] = -1.0;
@@ -113,9 +113,6 @@ void writeWav(char *filename, WAV *header, float *data_fl, int signalSize) {
     printf("couldn't open file!");
     exit(1);
   }
-/*  for (int i = 0; i < signalSize; i++)  {*/
-/*    data[i] = data_fl[i] * 32767;*/
-/*  }*/
   // only supports 1 channel
   int bytesPerSample = header->bitsPerSample / 8;
   int subChunk2Size = signalSize * 1 * bytesPerSample;
@@ -127,9 +124,9 @@ void writeWav(char *filename, WAV *header, float *data_fl, int signalSize) {
   
   /* fmt chunk */
   fwrite("fmt ", 1, 4, wav_file);
-  write_little_endian(16, 4, wav_file);   /* SubChunk1Size is 16 */
-  write_little_endian(1, 2, wav_file);    /* PCM is format 1 */
-  write_little_endian(1, 2, wav_file); /* only support ONE channel */
+  write_little_endian(header->subChunk1Size, 4, wav_file);   /* SubChunk1Size is 16 */
+  write_little_endian(header->audioFormat, 2, wav_file);    /* PCM is format 1 */
+  write_little_endian(header->numChannels, 2, wav_file); /* only support ONE channel */
   write_little_endian(header->sampleRate, 4, wav_file);
   write_little_endian(header->byteRate, 4, wav_file);
   write_little_endian(bytesPerSample, 2, wav_file);  /* block align */
@@ -141,7 +138,9 @@ void writeWav(char *filename, WAV *header, float *data_fl, int signalSize) {
   
   write_little_endian(subChunk2Size, 4, wav_file);
   for (int i = 0; i < signalSize; i++) {
-    write_little_endian((unsigned int)(data_fl[i] * (32767)), bytesPerSample, wav_file);
+/*    printf("writing: %f as %i\n", data_fl[i], (short)(data_fl[i] * 32767));*/
+    short sample = (short)(data_fl[i] * 32767);
+    fwrite(&sample, 1, bytesPerSample, wav_file);
   }
   
   fclose(wav_file);
