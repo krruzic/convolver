@@ -31,16 +31,8 @@ int main(int argc, char **argv) {
     strcpy(in_filename, cwd);
     strcpy(ir_filename, cwd);
     // get filename from command line
-    if (argc < 2) {
-      printf("No wave file specified\n");
-      return -1;
-    }
-    if (argc < 3) {
-        printf("No impluse file specified\n");
-        return -1;
-    }
     if (argc < 4) {
-      printf("No output file specified\n");
+      printf("Usage: convolve input.wav impulse.wav output.wav\n");
       return -1;
     }
     
